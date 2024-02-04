@@ -1,13 +1,35 @@
 <script lang="ts">
+	import { authHandlers } from '$store/store';
+
+	authHandlers;
 	let email = '';
 	let password = '';
 	let confirmPassword = '';
 	let error = false;
 	let register = false;
+	let authenticating = false;
 
-	function handleAuthenticate() {
-		if (!email || !password || (register && !confirmPassword)) error = true;
-		return;
+	async function handleAuthenticate() {
+		if (authenticating) return;
+
+		if (!email || !password || (register && !confirmPassword)) return (error = true);
+
+		authenticating = true;
+
+		try {
+			if (register) {
+				if (password !== confirmPassword) return (error = true);
+				await authHandlers.signup({ email, password });
+			} else {
+				await authHandlers.login({ email, password });
+			}
+		} catch (e) {
+			console.error(e);
+			error = true;
+			authenticating = false;
+		}
+
+		authenticating = true;
 	}
 	function handleRegister() {
 		register = !register;
@@ -18,7 +40,7 @@
 	<form>
 		<h1>{register ? 'Register' : 'Login'}</h1>
 		{#if error}
-			<p style="color: red;">Please fill all fields</p>
+			<p style="color: red;">The information you have provided is not correct.</p>
 		{/if}
 		<label>
 			<p class={email ? 'above' : 'center'}>Email</p>
@@ -34,7 +56,7 @@
 				<input bind:value={confirmPassword} type="password" placeholder="Confirm Password" />
 			</label>
 		{/if}
-		<button type="button">Submit</button>
+		<button on:click={handleAuthenticate} type="button">Submit</button>
 	</form>
 	<div class="options">
 		{#if register}

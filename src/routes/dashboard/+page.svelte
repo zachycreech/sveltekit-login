@@ -1,20 +1,43 @@
 <script lang="ts">
-	let todoList: string[] = ['First', 'Second', 'Third'];
+	import { db } from '$fb/firebase';
+	import { authHandlers, authStore } from '$store/store';
+	import { doc, setDoc } from 'firebase/firestore';
+
+	let todoList: string[] = [];
 	let todoText = '';
+	let ref: HTMLInputElement | null = null;
+
+	authStore.subscribe((state: any) => {
+		todoList = state?.data?.todos ?? [];
+	});
 
 	function handleAdd() {
 		todoList = [...todoList, todoText];
 		todoText = '';
 	}
 
-	function handleSubmit() {
-		console.log(todoList);
+	async function handleSubmit() {
+		if (!$authStore?.user) return;
+		try {
+			//@ts-ignore
+			const userRef = doc(db, 'users', $authStore.user.uid);
+			await setDoc(
+				userRef,
+				{
+					todos: todoList
+				},
+				{ merge: true }
+			);
+		} catch (e) {
+			console.error(e);
+		}
 	}
 
 	function handleEdit(index: number) {
 		let newToDoList = [...todoList].filter((_, i) => i !== index);
-		todoText = newToDoList[index];
+		todoText = todoList[index];
 		todoList = newToDoList;
+		if (ref) ref.focus();
 	}
 	function handleDelete(item: string) {
 		let newToDoList = [...todoList].filter((i) => i !== item);
@@ -25,18 +48,21 @@
 <div class="mainContainer">
 	<div class="toDoHeader">
 		<h1>To-Do's</h1>
-		<button on:click={handleSubmit}>
-			<div class="save">
-				<i class="fa-solid fa-floppy-disk"></i>
-				<p>Save</p>
-			</div>
-		</button>
-		<button>
-			<div class="save">
-				<p>Log Out</p>
-				<i class="fa-solid fa-arrow-right-from-bracket"></i>
-			</div>
-		</button>
+
+		<div class="headerButtons">
+			<button on:click={handleSubmit}>
+				<div class="save">
+					<i class="fa-solid fa-floppy-disk"></i>
+					<p>Save</p>
+				</div>
+			</button>
+			<button on:click={authHandlers.logout}>
+				<div class="save">
+					<p>Log Out</p>
+					<i class="fa-solid fa-arrow-right-from-bracket"></i>
+				</div>
+			</button>
+		</div>
 	</div>
 	<main>
 		{#each todoList as item, i}
@@ -55,7 +81,7 @@
 	</main>
 	<form>
 		<div class="todoGroup">
-			<input type="text" bind:value={todoText} placeholder="Add a to-do" />
+			<input type="text" bind:value={todoText} placeholder="Add a to-do" bind:this={ref} />
 			<button on:click={handleAdd}>Add</button>
 		</div>
 	</form>
